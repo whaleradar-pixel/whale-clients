@@ -1,4 +1,8 @@
-/*
-  X-Frame-Options: DENY
-  X-Content-Type-Options: nosniff
-  Referrer-Policy: strict-origin-when-cross-origin
+{
+  "name": "whale-clients",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "build": "echo build complete"
+  }
+}
