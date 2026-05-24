@@ -21,14 +21,17 @@ function supabaseConfig() {
 async function supabaseFetch(path, options = {}) {
   const cfg = supabaseConfig();
   if (!cfg) throw new Error('Supabase is not configured');
+  const headers = {
+    apikey: cfg.key,
+    'content-type': 'application/json',
+    ...(options.headers || {})
+  };
+  if (!cfg.key.startsWith('sb_secret_')) {
+    headers.authorization = `Bearer ${cfg.key}`;
+  }
   const response = await fetch(`${cfg.url}/rest/v1/${path}`, {
     ...options,
-    headers: {
-      apikey: cfg.key,
-      authorization: `Bearer ${cfg.key}`,
-      'content-type': 'application/json',
-      ...(options.headers || {})
-    }
+    headers
   });
   if (!response.ok) {
     const text = await response.text().catch(() => '');
