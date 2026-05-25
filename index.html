@@ -65,7 +65,7 @@
         <input id="phone" placeholder="טלפון">
         <input id="email" placeholder="אימייל">
         <input id="nationalId" placeholder="תעודת זהות">
-        <select id="plan"><option value="basic">BASIC ₪49</option><option value="pro">PRO ₪99</option><option value="vip">VIP ₪199</option></select>
+        <select id="plan" onchange="syncTrialDays()"><option value="trial">ניסיון 7 ימים</option><option value="basic">BASIC ₪49</option><option value="pro">PRO ₪99</option><option value="vip">VIP ₪199</option></select>
         <input id="days" type="number" value="30" min="1" placeholder="ימים">
         <button class="btn" onclick="addClient()">צור קוד</button>
       </div></div></div>
@@ -92,8 +92,8 @@
 const ADMIN_USER='YOSSIMAK';
 const ADMIN_PASS='Smait764636';
 const ADMIN_EMAIL='whaleradar@whaleradar.dev';
-const prices={basic:49,pro:99,vip:199};
-const labels={basic:'BASIC',pro:'PRO',vip:'VIP'};
+const prices={trial:0,basic:49,pro:99,vip:199};
+const labels={trial:'TRIAL',basic:'BASIC',pro:'PRO',vip:'VIP'};
 let clients=JSON.parse(localStorage.getItem('wr_clients')||'[]');
 let leads=[];
 const $=s=>document.querySelector(s);
@@ -108,9 +108,10 @@ if(sessionStorage.getItem('wr_admin_ok')==='1')$('#lockScreen').style.display='n
 function showView(id){document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));document.querySelectorAll('.nav button').forEach(b=>b.classList.toggle('active',b.dataset.view===id));$('#'+id).classList.add('active');if(id==='leads')loadLeads();render()}
 function toast(t){$('#toast').textContent=t;$('#toast').classList.add('show');setTimeout(()=>$('#toast').classList.remove('show'),2200)}
 function save(){localStorage.setItem('wr_clients',JSON.stringify(clients))}
-function code(plan){const pre={basic:'WR-BSC',pro:'WR-PRO',vip:'WR-VIP'}[plan];return pre+'-'+Math.random().toString(16).slice(2,10).toUpperCase()}
-function addClient(){const name=$('#name').value.trim();const phone=$('#phone').value.trim();const email=$('#email').value.trim();const nationalId=$('#nationalId').value.trim();const plan=$('#plan').value;const days=Number($('#days').value||30);if(!name||!phone)return toast('חסר שם או טלפון');const created=new Date().toISOString().slice(0,10);const expires=new Date(Date.now()+days*86400000).toISOString().slice(0,10);clients.unshift({id:Date.now(),name,phone,email,nationalId,plan,code:code(plan),created,lastLogin:created,expires,amount:prices[plan]});save();['name','phone','email','nationalId'].forEach(id=>$('#'+id).value='');render();toast('קוד מנוי נוצר')}
-function addClientFromLead(lead){const plan=lead.requested_plan||'basic';const created=new Date().toISOString().slice(0,10);const expires=new Date(Date.now()+30*86400000).toISOString().slice(0,10);const client={id:Date.now(),name:lead.full_name,phone:lead.phone,email:lead.email||'',nationalId:lead.national_id||'',plan,code:code(plan),created,lastLogin:created,expires,amount:prices[plan]};clients.unshift(client);save();render();markLead(lead.id,'converted');toast('לקוח נוצר וקוד מנוי הופק')}
+function code(plan){const pre={trial:'WR-TRL',basic:'WR-BSC',pro:'WR-PRO',vip:'WR-VIP'}[plan];return pre+'-'+Math.random().toString(16).slice(2,10).toUpperCase()}
+function syncTrialDays(){if($('#plan')?.value==='trial')$('#days').value=7}
+function addClient(){const name=$('#name').value.trim();const phone=$('#phone').value.trim();const email=$('#email').value.trim();const nationalId=$('#nationalId').value.trim();const plan=$('#plan').value;const days=plan==='trial'?7:Number($('#days').value||30);if(!name||!phone)return toast('חסר שם או טלפון');const created=new Date().toISOString().slice(0,10);const expires=new Date(Date.now()+days*86400000).toISOString().slice(0,10);clients.unshift({id:Date.now(),name,phone,email,nationalId,plan,code:code(plan),created,lastLogin:created,expires,amount:prices[plan]});save();['name','phone','email','nationalId'].forEach(id=>$('#'+id).value='');render();toast(plan==='trial'?'קוד ניסיון ל-7 ימים נוצר':'קוד מנוי נוצר')}
+function addClientFromLead(lead){const plan=lead.requested_plan||'basic';const days=plan==='trial'?7:30;const created=new Date().toISOString().slice(0,10);const expires=new Date(Date.now()+days*86400000).toISOString().slice(0,10);const client={id:Date.now(),name:lead.full_name,phone:lead.phone,email:lead.email||'',nationalId:lead.national_id||'',plan,code:code(plan),created,lastLogin:created,expires,amount:prices[plan]};clients.unshift(client);save();render();markLead(lead.id,'converted');toast('לקוח נוצר וקוד מנוי הופק')}
 async function loadLeads(){const status=$('#leadStatus');const rows=$('#leadRows');if(!rows)return;status.textContent='טוען...';try{const r=await fetch('/.netlify/functions/leads-admin',{cache:'no-store'});const data=await r.json().catch(()=>({}));if(!r.ok)throw new Error(data.error||'load failed');leads=data.leads||[];status.textContent=`${leads.length} בקשות`;renderLeads()}catch(e){status.textContent='לא מחובר ל-Supabase';rows.innerHTML='<tr><td colspan="8">לא ניתן לטעון בקשות. בדוק שהוגדרו SUPABASE_URL ו-SUPABASE_SERVICE_ROLE_KEY בפרויקט whale-clients.</td></tr>'}}
 function renderLeads(){const rows=$('#leadRows');if(!rows)return;rows.innerHTML=leads.map(l=>`<tr><td>${l.full_name||'-'}</td><td>${l.phone||'-'}</td><td>${l.national_id||'-'}</td><td>${l.email||'-'}</td><td><span class="pill ${l.requested_plan||'basic'}">${labels[l.requested_plan]||l.requested_plan||'BASIC'}</span></td><td>${(l.created_at||'').slice(0,10)}</td><td>${l.status||'new'}</td><td class="actions"><button class="btn secondary" onclick='addClientFromLead(${JSON.stringify(l)})'>צור לקוח וקוד</button><button class="btn secondary" onclick="markLead('${l.id}','contacted')">סומן שטופל</button></td></tr>`).join('')||'<tr><td colspan="8">אין בקשות הצטרפות</td></tr>'}
 async function markLead(id,status){try{const r=await fetch('/.netlify/functions/leads-admin',{method:'PATCH',headers:{'content-type':'application/json'},body:JSON.stringify({id,status})});if(!r.ok)throw new Error('update failed');await loadLeads()}catch(e){toast('לא ניתן לעדכן סטטוס בקשה')}}
