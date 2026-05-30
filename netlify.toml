@@ -1,4 +1,0 @@
-[build]
-  command = "echo build complete"
-  publish = "."
-  functions = "functions"
